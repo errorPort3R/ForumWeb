@@ -1,5 +1,10 @@
 package com.theironyard.javawithclojure.jhporter;
 
+import spark.ModelAndView;
+import spark.Session;
+import spark.Spark;
+import spark.template.mustache.MustacheTemplateEngine;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -11,10 +16,73 @@ public class Main {
 
     public static void main(String[] args)
     {
+        addTestUsers();
+        addTestMessage();
 
+        Spark.get(
+                "/",
+                (request, response ) ->
+                {
+                    Session session = request.session();
+                    String username = session.attribute("username");
+
+                    String idStr = request.queryParams("replyId");
+                    int replyId = -1;
+                    if (idStr != null)
+                    {
+                        replyId = Integer.valueOf(idStr);
+                    }
+                    ArrayList <Message> subset = new ArrayList<Message>();
+                    for (Message msg : messages)
+                    {
+                        if (msg.replyId == replyId)
+                        {
+                            subset.add(msg);
+                        }
+                    }
+                    HashMap m = new HashMap();
+                    m.put("messages", subset);
+                    m.put("username", username);
+                    return new ModelAndView(m, "home.html");
+                },
+                new MustacheTemplateEngine()
+        );
+
+        Spark.post(
+                "/login",
+                (request, response ) ->
+                {
+                    String username = request.queryParams("username");
+                    if (username.isEmpty())
+                    {
+                        response.redirect("/");
+                        return"";
+                    }
+                    User user = users.get(username);
+                    if (user == null) {
+                        user = new User(username, "");
+                        users.put(username, user);
+                    }
+
+                    Session session = request.session();
+                    session.attribute("username", username);
+
+                    response.redirect(request.headers("Referer"));
+                    return"";
+                }
+
+        );
+        Spark.post(
+                "/logout",
+                (request, response ) ->
+                {
+                    Session session = request.session();
+                    session.invalidate();
+                    response.redirect("/");
+                    return"";
+                }
+        );
     }
-
-
 
     static void addTestUsers()
     {
