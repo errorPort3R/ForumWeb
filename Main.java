@@ -43,6 +43,7 @@ public class Main {
                     HashMap m = new HashMap();
                     m.put("messages", subset);
                     m.put("username", username);
+                    m.put("replyId", replyId);
                     return new ModelAndView(m, "home.html");
                 },
                 new MustacheTemplateEngine()
@@ -50,7 +51,7 @@ public class Main {
 
         Spark.post(
                 "/login",
-                (request, response ) ->
+                (request, response) ->
                 {
                     String username = request.queryParams("username");
                     if (username.isEmpty())
@@ -82,6 +83,27 @@ public class Main {
                     return"";
                 }
         );
+        Spark.post(
+                "/create-message",
+                (request, response ) ->
+                {
+                    Session session = request.session();
+                    String username = session.attribute("username");
+                    if (username == null) {
+                        throw new Exception();
+
+                    }
+
+                    int replyId = Integer.valueOf(request.queryParams("replyId"));
+                    String text = request.queryParams("messages");
+                    Message msg = new Message(messages.size(), replyId, username, text);
+                    messages.add(msg);
+
+                    response.redirect(request.headers("Referer"));
+                    return "";
+                }
+        );
+
     }
 
     static void addTestUsers()
