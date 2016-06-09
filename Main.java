@@ -14,36 +14,40 @@ public class Main {
     static ArrayList<Message> messages = new ArrayList<>();
 
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         addTestUsers();
         addTestMessage();
 
         Spark.get(
                 "/",
-                (request, response ) ->
+                (request, response) ->
                 {
                     Session session = request.session();
                     String username = session.attribute("username");
 
                     String idStr = request.queryParams("replyId");
                     int replyId = -1;
-                    if (idStr != null)
-                    {
+                    if (idStr != (null)) {
                         replyId = Integer.valueOf(idStr);
                     }
-                    ArrayList <Message> subset = new ArrayList<Message>();
-                    for (Message msg : messages)
-                    {
-                        if (msg.replyId == replyId)
-                        {
+                    ArrayList<Message> subset = new ArrayList<>();
+                    for (Message msg : messages) {
+                        if (msg.replyId == replyId) {
                             subset.add(msg);
                         }
                     }
+
+                    Message parentMsg = null;
+                    if (replyId >= 0) {
+                        parentMsg = messages.get(replyId);
+                    }
+
                     HashMap m = new HashMap();
                     m.put("messages", subset);
                     m.put("username", username);
                     m.put("replyId", replyId);
+                    m.put("message", parentMsg);
+                    m.put("isMe", parentMsg != null && username != null && parentMsg.author.equals(username));
                     return new ModelAndView(m, "home.html");
                 },
                 new MustacheTemplateEngine()
@@ -54,10 +58,9 @@ public class Main {
                 (request, response) ->
                 {
                     String username = request.queryParams("username");
-                    if (username.isEmpty())
-                    {
+                    if (username.isEmpty()) {
                         response.redirect("/");
-                        return"";
+                        return "";
                     }
                     User user = users.get(username);
                     if (user == null) {
@@ -69,23 +72,23 @@ public class Main {
                     session.attribute("username", username);
 
                     response.redirect(request.headers("Referer"));
-                    return"";
+                    return "";
                 }
 
         );
         Spark.post(
                 "/logout",
-                (request, response ) ->
+                (request, response) ->
                 {
                     Session session = request.session();
                     session.invalidate();
                     response.redirect("/");
-                    return"";
+                    return "";
                 }
         );
         Spark.post(
                 "/create-message",
-                (request, response ) ->
+                (request, response) ->
                 {
                     Session session = request.session();
                     String username = session.attribute("username");
@@ -95,7 +98,7 @@ public class Main {
                     }
 
                     int replyId = Integer.valueOf(request.queryParams("replyId"));
-                    String text = request.queryParams("messages");
+                    String text = request.queryParams("message");
                     Message msg = new Message(messages.size(), replyId, username, text);
                     messages.add(msg);
 
@@ -103,7 +106,28 @@ public class Main {
                     return "";
                 }
         );
-
+        Spark.post(
+                "/delete-message",
+                (request, response) ->
+                {
+                    int id = Integer.valueOf(request.queryParams(("id")));
+                    Session session = request.session();
+                    String username = session.attribute("username");
+                    Message m = messages.get(id);
+                    if (username.equals(m.author))
+                    {
+                        messages.remove(id);
+                        //reset id's
+                        int index = 0;
+                        for (Message msg : messages) {
+                            msg.id = index;
+                            index++;
+                        }
+                    }
+                    response.redirect("/");
+                    return "";
+                }
+        );
     }
 
     static void addTestUsers()
